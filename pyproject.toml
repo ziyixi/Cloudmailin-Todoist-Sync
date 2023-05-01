@@ -1,0 +1,24 @@
+[tool.poetry]
+authors = ["Ziyi Xi <ziyixi@mail.ustc.edu.cn>"]
+description = ""
+license = "MIT"
+name = "cloudmailin-todoist-sync"
+readme = "README.md"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+fastapi = "^0.95.1"
+markdownify = "^0.11.6"
+openai = "^0.27.5"
+python = "^3.9"
+python-dotenv = "^1.0.0"
+todoist-api-python = "^2.0.2"
+uvicorn = "^0.22.0"
+
+[tool.poetry.group.dev.dependencies]
+autopep8 = "^2.0.2"
+pylint = "^2.17.3"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
