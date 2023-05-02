@@ -35,7 +35,7 @@ LABEL org.opencontainers.image.licenses=MIT
 # Set the working directory
 WORKDIR /app
 
-RUN apk add --no-cache libgcc
+RUN apk add --no-cache libgcc libc6-compat
 
 # Copy the necessary files
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
