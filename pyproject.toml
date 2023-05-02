@@ -15,6 +15,7 @@ python-dotenv = "^1.0.0"
 todoist-api-python = "^2.0.2"
 uvicorn = "^0.22.0"
 tiktoken = "^0.3.3"
+tenacity = "^8.2.2"
 
 [tool.poetry.group.dev.dependencies]
 autopep8 = "^2.0.2"
