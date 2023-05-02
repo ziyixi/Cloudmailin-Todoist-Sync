@@ -3,10 +3,20 @@ import re
 
 from fastapi import HTTPException, Request
 from markdownify import markdownify as md
+from tenacity import RetryCallState, retry, stop_after_attempt, wait_fixed
 
 from .chatgpt import chat_completation
-from .todoist import add_task_to_todoist
 from .datatype import ParsedPost
+from .todoist import add_task_to_todoist
+
+
+def retry_if_exception(result: RetryCallState):
+    return result.outcome.failed
+
+
+@retry(retry=retry_if_exception, stop=stop_after_attempt(5), wait=wait_fixed(1))
+async def chat_completation_with_retry(api_key: str, email_content: str):
+    return chat_completation(api_key, email_content)
 
 
 def parse_json(s: str) -> ParsedPost:
@@ -55,8 +65,10 @@ async def handle_cmi_post(request: Request, openai_api_key: str, todoist_api_key
     if not parsed_res.From:
         raise HTTPException(status_code=400, detail="From is empty")
     if len(parsed_res.Content) > 0:
-        parsed_res.Content = chat_completation(
-            openai_api_key, parsed_res.Content)
+        try:
+            parsed_res.Content = await chat_completation_with_retry(openai_api_key, parsed_res.Content)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
     else:
         parsed_res.Content = "No content"
 
@@ -65,5 +77,4 @@ async def handle_cmi_post(request: Request, openai_api_key: str, todoist_api_key
         url = add_task_to_todoist(parsed_res, todoist_api_key)
         return {"url": url}
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Todoist task add failed")
+        raise HTTPException(status_code=500, detail=str(e))

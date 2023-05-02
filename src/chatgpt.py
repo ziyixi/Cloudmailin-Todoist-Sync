@@ -1,5 +1,4 @@
 import openai
-from tenacity import retry, stop_after_attempt, wait_fixed
 
 from .utils.token_counter import count_tokens
 
@@ -24,7 +23,6 @@ Below is the content of the email:
 """
 
 
-@retry(stop=stop_after_attempt(5), wait=wait_fixed(1))
 def chat_completation(api_key: str, email_content: str):
     # sometimes email_content is too long, so we need to cut it
     content = TEMPLATE.format(email_content=email_content)
