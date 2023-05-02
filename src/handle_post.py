@@ -17,7 +17,7 @@ def parse_json(s: str) -> ParsedPost:
     if not markdown_raw:
         markdown_raw = data.get("plain", "")
 
-    url_pattern = r'\(\s*https[^()]*\)'
+    url_pattern = r'\[([^\]]+)\]\(([^)]+)\)', r'[\1]()'
     m = re.compile(url_pattern)
     markdown = m.sub("()", markdown_raw)
 
