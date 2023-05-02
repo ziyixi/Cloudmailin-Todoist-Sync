@@ -24,6 +24,6 @@ Below is the content of the email:
 def chat_completation(api_key: str, email_content: str):
     openai.api_key = api_key
     completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo", messages=[{"role": "user", "content": TEMPLATE.format(email_content=email_content)}])
+        model="gpt-3.`5-turbo", messages=[{"role": "user", "content": TEMPLATE.format(email_content=email_content)}], request_timeout=10000)
     res = completion.choices[0].message.content
     return res
