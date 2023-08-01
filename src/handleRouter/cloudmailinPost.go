@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	_ "embed"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
 	"github.com/ziyixi/Cloudmailin-Todoist-Sync/src/gptSummary"
+	"github.com/ziyixi/go-ticktick"
 )
 
 type cloudmailinPost struct {
@@ -107,9 +109,6 @@ func HandleCloudmailinPost(c *gin.Context) {
 		return
 	}
 
-	// create todoist task
-	todoistApiKey := os.Getenv("todoist_api_key")
-
 	// prepare task description, load template
 	tmpl, err := template.New("todoistDescription").Parse(descriptionTmpl)
 	if err != nil {
@@ -124,39 +123,65 @@ func HandleCloudmailinPost(c *gin.Context) {
 	}
 	taskDescription := buf.String()
 
-	// make post request to todoist
-	taskRequestContent := AddTaskRequestAndResponse{
-		Content:     fmt.Sprintf("%v [%v]", emailContent.Subject, emailContent.From),
-		Labels:      []string{"email"},
-		Description: taskDescription,
-	}
-	client := resty.New()
-	unewUUID, err := uuid.NewRandom()
-	unewUUIDString := unewUUID.String()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error in generating uuid": err.Error()})
-		return
-	}
+	todoistApiKey := os.Getenv("todoist_api_key")
+	if len(todoistApiKey) > 0 {
+		// * use todoist
+		// make post request to todoist
+		taskRequestContent := AddTaskRequestAndResponse{
+			Content:     fmt.Sprintf("%v [%v]", emailContent.Subject, emailContent.From),
+			Labels:      []string{"email"},
+			Description: taskDescription,
+		}
+		client := resty.New()
+		unewUUID, err := uuid.NewRandom()
+		unewUUIDString := unewUUID.String()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in generating uuid": err.Error()})
+			return
+		}
 
-	resp, err := client.R().
-		SetHeader("Content-Type", "application/json").
-		SetHeader("X-Request-Id", strings.TrimSpace(unewUUIDString)).
-		SetHeader("Authorization", "Bearer "+todoistApiKey).
-		SetBody(taskRequestContent).
-		Post("https://api.todoist.com/rest/v2/tasks")
+		resp, err := client.R().
+			SetHeader("Content-Type", "application/json").
+			SetHeader("X-Request-Id", strings.TrimSpace(unewUUIDString)).
+			SetHeader("Authorization", "Bearer "+todoistApiKey).
+			SetBody(taskRequestContent).
+			Post("https://api.todoist.com/rest/v2/tasks")
 
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error in creating todoist task": err.Error()})
-		return
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in creating todoist task": err.Error()})
+			return
+		}
+
+		// parse url from response
+		task := AddTaskRequestAndResponse{}
+		err = json.Unmarshal(resp.Body(), &task)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in parsing todoist response": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"url": task.Url})
+	} else {
+		// * use dida365 instead
+		didaUsername := os.Getenv("dida365_username")
+		didaPassword := os.Getenv("dida365_password")
+		client, err := ticktick.NewClient(didaUsername, didaPassword, "dida365")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in creating dida365 client": err.Error()})
+			return
+		}
+		// create task
+		task, err := ticktick.NewTask(client, fmt.Sprintf("%v [%v]", emailContent.Subject, emailContent.From), taskDescription, time.Time{}, "")
+		task.Tags = append(task.Tags, "email")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in creating dida365 task": err.Error()})
+			return
+		}
+		task, err = client.CreateTask(task)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in creating dida365 task": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"task_id": task.Id})
 	}
-
-	// parse url from response
-	task := AddTaskRequestAndResponse{}
-	err = json.Unmarshal(resp.Body(), &task)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error in parsing todoist response": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"url": task.Url})
 }

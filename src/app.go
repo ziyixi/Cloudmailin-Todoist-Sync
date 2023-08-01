@@ -21,8 +21,17 @@ func setupRouter() *gin.Engine {
 
 	// check other required env variables
 	todoistApiKey := os.Getenv("todoist_api_key")
+	didaUsername := os.Getenv("dida365_username")
+	didaPassword := os.Getenv("dida365_password")
 	if len(todoistApiKey) == 0 {
-		panic("todoist_api_key is not in .env")
+		if len(didaUsername) == 0 && len(didaPassword) == 0 {
+			panic("todoist_api_key or dida365_username and dida365_password is not in .env")
+		} else if len(didaUsername) == 0 {
+			panic("dida365_username is not in .env")
+		} else if len(didaPassword) == 0 {
+			panic("dida365_password is not in .env")
+		}
+		// else just use dida365
 	}
 	openaiApiKey := os.Getenv("openai_api_key")
 	if len(openaiApiKey) == 0 {
@@ -39,7 +48,7 @@ func setupRouter() *gin.Engine {
 }
 
 func main() {
-	gin.SetMode(gin.ReleaseMode)
+	// gin.SetMode(gin.ReleaseMode)
 
 	listenAddr := ":" + os.Getenv("PORT")
 
