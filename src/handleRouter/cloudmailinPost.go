@@ -15,6 +15,8 @@ import (
 	_ "embed"
 
 	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/emersion/go-sasl"
+	"github.com/emersion/go-smtp"
 	"github.com/gin-gonic/gin"
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
@@ -123,8 +125,9 @@ func HandleCloudmailinPost(c *gin.Context) {
 	}
 	taskDescription := buf.String()
 
-	todoistApiKey := os.Getenv("todoist_api_key")
-	if len(todoistApiKey) > 0 {
+	appmode := os.Getenv("appmode")
+	if appmode == "todoist" {
+		todoistApiKey := os.Getenv("todoist_api_key")
 		// * use todoist
 		// make post request to todoist
 		taskRequestContent := AddTaskRequestAndResponse{
@@ -161,7 +164,7 @@ func HandleCloudmailinPost(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{"url": task.Url})
-	} else {
+	} else if appmode == "dida365" {
 		// * use dida365 instead
 		didaUsername := os.Getenv("dida365_username")
 		didaPassword := os.Getenv("dida365_password")
@@ -183,5 +186,31 @@ func HandleCloudmailinPost(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"task_id": task.Id})
+	} else if appmode == "smtp" {
+		// * use smtp instead
+		smtpServerName := os.Getenv("smtp_server_name")
+		smtpServerPort := os.Getenv("smtp_server_port")
+		smtpUsername := os.Getenv("smtp_username")
+		smtpPassword := os.Getenv("smtp_password")
+		smtpFrom := os.Getenv("smtp_from")
+		smtpTo := os.Getenv("smtp_to")
+
+		auth := sasl.NewPlainClient("", smtpUsername, smtpPassword)
+
+		// Connect to the server, authenticate, set the sender and recipient,
+		// and send the email all in one step.
+		to := []string{smtpTo}
+		msg := strings.NewReader(fmt.Sprintf("To: %v\r\n", smtpTo) +
+			fmt.Sprintf("Subject: %v [%v]\r\n", emailContent.Subject, emailContent.From) +
+			"\r\n" +
+			fmt.Sprintf("%v\r\n", taskDescription))
+
+		err := smtp.SendMailTLS(fmt.Sprintf("%v:%v", smtpServerName, smtpServerPort), auth, smtpFrom, to, msg)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error in sending email": err.Error()})
+		}
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error in appmode": "appmode is not in .env"})
+		return
 	}
 }

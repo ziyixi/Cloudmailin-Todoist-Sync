@@ -71,5 +71,7 @@ func SummaryByChatGPT(content string) (string, error) {
 		return "", fmt.Errorf("client.CreateChatCompletion error: %v", err)
 	}
 
-	return resp.Choices[0].Message.Content, nil
+	res := resp.Choices[0].Message.Content
+
+	return res, nil
 }
