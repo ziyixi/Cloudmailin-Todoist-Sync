@@ -105,7 +105,15 @@ func HandleCloudmailinPost(c *gin.Context) {
 	}
 
 	// summary the email content
-	emailContent.Content, err = gptSummary.SummaryByChatGPT(emailContent.Content)
+	gptmode := os.Getenv("gptmode")
+	if gptmode == "chatgpt" {
+		emailContent.Content, err = gptSummary.SummaryByChatGPT(emailContent.Content)
+	} else if gptmode == "gemini" {
+		emailContent.Content, err = gptSummary.SummaryByGemini(emailContent.Content)
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error in gptmode": "gptmode is not in .env"})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error in summarizing email content": err.Error()})
 		return
@@ -131,7 +139,7 @@ func HandleCloudmailinPost(c *gin.Context) {
 		// * use todoist
 		// make post request to todoist
 		taskRequestContent := AddTaskRequestAndResponse{
-			Content:     fmt.Sprintf("%v [%v]", emailContent.Subject, emailContent.From),
+			Content:     fmt.Sprintf("%v", emailContent.Subject),
 			Labels:      []string{"email"},
 			Description: taskDescription,
 		}
